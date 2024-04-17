@@ -1,0 +1,12 @@
+- name: Check if Ingress-nginx namespace exists
+  become: yes
+  become_user: ubuntu
+  shell: kubectl get namespace ingress-nginx
+  register: ingress_nginx_ns_check
+  ignore_errors: yes
+
+- name: Apply Ingress-nginx addon if Ingress-nginx namespace not exists
+  become: yes
+  become_user: ubuntu
+  command: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.1/deploy/static/provider/aws/deploy.yaml
+  when: ingress_nginx_ns_check.rc != 0

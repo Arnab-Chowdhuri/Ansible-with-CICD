@@ -1,0 +1,44 @@
+- name: Check if Helm-k8s-project directory exists
+  become: yes
+  become_user: ubuntu
+  stat:
+    path: ~/Helm-k8s-project
+  register: helm_k8s_project_dir_check
+
+- name: Create Helm-k8s-project directory if not exists
+  become: yes
+  become_user: ubuntu
+  file:
+    path: ~/Helm-k8s-project
+    state: directory
+  when: not helm_k8s_project_dir_check.stat.exists
+
+- name: Check if Helm-k8s-project directory exists
+  become: yes
+  become_user: ubuntu
+  stat:
+    path: ~/Helm-k8s-project/Helm-k8s-project
+  register: helm_k8s_project_folder_check
+
+- name: Clone git repository if my-k8s-helm-project folder does not exist
+  become: yes
+  become_user: ubuntu
+  shell: |
+    cd ~/Helm-k8s-project/ &&
+    git clone https://github.com/Arnab-Chowdhuri/Helm-k8s-project.git
+  when: not helm_k8s_project_folder_check.stat.exists
+
+- name: Check if release1 is present
+  become: yes
+  become_user: ubuntu
+  shell: helm list -q | grep release1
+  register: release1_check
+  ignore_errors: yes
+
+- name: Install helm chart if release1 is not present
+  become: yes
+  become_user: ubuntu
+  command: helm install release1 my-k8s-helm-project
+  args:
+    chdir: ~/Helm-k8s-project/Helm-k8s-project/
+  when: release1_check.rc != 0

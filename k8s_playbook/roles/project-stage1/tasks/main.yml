@@ -1,0 +1,76 @@
+- name: Updating the apt package
+  apt: 
+    update_cache: yes 
+    force_apt_get: yes
+
+- name: Install unzip package
+  apt:
+    name: unzip
+    state: present
+
+- name: Download AWS CLI zip file
+  get_url:
+    url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+    dest: "/tmp/awscliv2.zip"
+
+- name: Ensure /tmp/aws directory exists
+  file:
+    path: /tmp/aws
+    state: directory
+
+- name: Unzip AWS CLI
+  unarchive:
+    src: "/tmp/awscliv2.zip"
+    dest: "/tmp/aws"
+    remote_src: yes
+
+- name: Run AWS CLI installation script
+  shell: |
+    sudo /tmp/aws/aws/install --update
+  args:
+    executable: /bin/bash
+  register: aws_install_output
+  ignore_errors: yes
+
+- name: Check AWS CLI version
+  command: aws --version
+  register: aws_version_output
+
+- name: Configure AWS CLI for Ubuntu user
+  become: yes
+  become_user: ubuntu
+  shell: |
+    aws configure set aws_access_key_id "{{ aws_access_key }}"
+    aws configure set aws_secret_access_key "{{ aws_secret_key }}"
+    aws configure set region "{{ aws_region }}"
+    aws configure set output "{{ aws_output_format }}"
+  args:
+    executable: /bin/bash
+
+- name: Install kubectl for ubuntu user
+  become: yes
+  become_user: ubuntu
+  shell: |
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    chmod +x kubectl
+    mkdir -p ~/.local/bin
+    mv ./kubectl ~/.local/bin/kubectl
+  args:
+    executable: /bin/bash
+
+- name: Install eksctl for ubuntu user
+  become: yes
+  become_user: ubuntu
+  shell: |
+    curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+    sudo mv /tmp/eksctl /usr/local/bin
+  args:
+    executable: /bin/bash
+
+- name: Generate SSH key pair for ubuntu user
+  become: yes
+  become_user: ubuntu
+  command: ssh-keygen -t rsa -b 2048 -q -f ~/.ssh/aws-keypair -N \"\"
+  args:
+    creates: ~/.ssh/aws-keypair.pub

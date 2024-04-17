@@ -1,0 +1,62 @@
+- name: Generate SSH key pair for ubuntu user
+  become: yes
+  become_user: ubuntu
+  command: ssh-keygen -t rsa -b 2048 -q -f ~/.ssh/aws-keypair -N \"\"
+  args:
+    creates: ~/.ssh/aws-keypair.pub
+
+- name: Check if the EKS cluster Arnab-cluster exists
+  become: yes
+  become_user: ubuntu
+  command: eksctl get cluster --name Arnab-cluster
+  register: eks_cluster_status
+  ignore_errors: yes
+
+- name: Create EKS cluster
+  become: yes
+  become_user: ubuntu
+  command: >
+    eksctl create cluster \
+    --name Arnab-cluster \
+    --region "{{ aws_region }}" \
+    --managed \
+    --nodegroup-name worker-ng-small \
+    --node-type t2.small \
+    --nodes 1 \
+    --nodes-min 1 \
+    --nodes-max 4 \
+    --ssh-access \
+    --ssh-public-key ~/.ssh/aws-keypair.pub \
+    --asg-access \
+    --external-dns-access \
+    --full-ecr-access \
+    --kubeconfig /home/ubuntu/.kube/config
+  when: eks_cluster_status.rc != 0
+
+- name: Check if the Node group worker-ng-medium exists
+  become: yes
+  become_user: ubuntu
+  command: eksctl get nodegroup --cluster Arnab-cluster --name worker-ng-medium
+  register: nodegroup_status
+  ignore_errors: yes
+
+- name: Create Node group in created cluster
+  become: yes
+  become_user: ubuntu
+  command: >
+    eksctl create nodegroup \
+    --cluster Arnab-cluster \
+    --region "{{ aws_region }}" \
+    --name worker-ng-medium \
+    --node-type t2.medium \
+    --nodes 1 \
+    --nodes-min 1 \
+    --nodes-max 4 \
+    --managed \
+    --full-ecr-access \
+    --ssh-access \
+    --ssh-public-key ~/.ssh/aws-keypair.pub \
+    --external-dns-access \
+    --full-ecr-access \
+    --asg-access
+  when: nodegroup_status.rc != 0
